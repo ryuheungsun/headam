@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Kakao Login Test</title>
+  <script src="https://developers.kakao.com/sdk/js/kakao.js"></script>
+</head>
+<body>
+
+<h2>카카오 로그인 테스트</h2>
+
+<button onclick="kakaoLogin()">카카오 로그인</button>
+<button onclick="kakaoLogout()">로그아웃</button>
+
+<div id="result"></div>
+
+<script>
+  // 🔥 여기에 본인 JavaScript 키 입력 주성정보('3b8fce8f4e92be93b996ffd3efab6311');//
+  Kakao.init('a12b139def86863fcd7d3ead4b3a5a44');
+
+  function kakaoLogin() {
+    Kakao.Auth.login({
+      scope: 'account_email, , phone_number',
+      success: function(authObj) {
+        console.log("토큰:", authObj);
+
+        // 사용자 정보 요청
+        Kakao.API.request({
+          url: '/v2/user/me',
+          success: function(res) {
+            console.log("사용자 정보:", res);
+
+            const id = res.id;
+           // const nickname = res.kakao_account.profile.nickname;
+            const email = res.kakao_account.email;
+            const phone = res.kakao_account.phone_number;
+
+            document.getElementById("result").innerHTML =
+              "<p>카카오ID: " + id + "</p>" +
+             // "<p>닉네임: " + nickname + "</p>" +
+              "<p>이메일: " + email + "</p>" +
+              "<p>전화번호: " + (phone || "동의 안함") + "</p>";
+          },
+          fail: function(error) {
+            console.log(error);
+          }
+        });
+
+      },
+      fail: function(err) {
+        console.log(err);
+      }
+    });
+  }
+
+  function kakaoLogout() {
+    Kakao.Auth.logout(function() {
+      alert("로그아웃 완료");
+      document.getElementById("result").innerHTML = "";
+    });
+  }
+</script>
+
+</body>
+</html>
