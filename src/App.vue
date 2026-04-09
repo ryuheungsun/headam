@@ -1,8 +1,10 @@
 <template>
   <div id="app">
+
     <!-- Header -->
     <header class="header">
-      <!-- 햄버거 버튼 (왼쪽 끝, 모바일만) -->
+
+      <!-- 햄버거 -->
       <div class="hamburger" @click="toggleMenu">
         <span></span>
         <span></span>
@@ -11,54 +13,146 @@
 
       <!-- 로고 -->
       <div class="logo">
-        <img src="../logo.jpg" height="80" />
+        <img src="../logo.jpg" />
       </div>
 
       <!-- 메뉴 -->
-      <nav :class="['menu', { open: menuOpen }]" @mouseleave="closeAll">
-        <router-link to="/">HOME</router-link>
+      <nav :class="['menu', { open: menuOpen }]">
+
+        <router-link to="/" @click="closeAll">홈</router-link>
 
         <!-- BRAND -->
-        <div class="dropdown" @click.stop="toggleDropdown('brand')">
-          <span class="dropbtn">BRAND ▾</span>
+        <div class="dropdown">
+
+          <span class="dropbtn" @click.stop="toggleDropdown('brand')">
+            브랜드 ▾
+          </span>
+
           <div :class="['dropdown-content', { show: dropdownOpen.brand }]">
-            <router-link to="/about">브랜드 소개</router-link>
-            <router-link to="/location">오시는 길</router-link>
+
+            <router-link to="/brand" @click="closeAll">
+              브랜드 소개
+            </router-link>
+
+            <router-link to="/location" @click="closeAll">
+              오시는 길
+            </router-link>
+
           </div>
+
         </div>
 
         <!-- PRODUCT -->
-        <div class="dropdown" @click.stop="toggleDropdown('product')">
-          <span class="dropbtn">PRODUCT ▾</span>
+        <div class="dropdown">
+
+          <span class="dropbtn" @click.stop="toggleDropdown('product')">
+            제품 보기 ▾
+          </span>
+
           <div :class="['dropdown-content', { show: dropdownOpen.product }]">
-            <router-link to="/giftset">선물세트</router-link>
-            <router-link to="/season">계절상품</router-link>
-            <router-link to="/best">베스트상품</router-link>
+
+            <router-link :to="{ path: '/productList' }" @click="closeAll">
+              전체 상품
+            </router-link>
+
+            <router-link v-for="item in categoryList" :key="item.categoryId"
+              :to="{ path: '/productList', query: { category: item.categoryId, categoryNm: item.categoryName } }"
+              @click="closeAll">
+              {{ item.categoryName }}
+
+            </router-link>
+
           </div>
+
+        </div>
+
+        <!-- MY PAGE -->
+        <div class="dropdown">
+
+          <span class="dropbtn" @click.stop="toggleDropdown('mypage')">
+            내 페이지 ▾
+          </span>
+
+          <div :class="['dropdown-content', { show: dropdownOpen.mypage }]">
+
+            <router-link to="/myPage" @click="closeAll">
+              마이페이지
+            </router-link>
+
+            <router-link to="/orderList" @click="closeAll">
+              주문내역
+            </router-link>
+
+            <router-link to="/cartList" @click="closeAll">
+              장바구니
+            </router-link>
+          </div>
+        </div>
+
+        <!-- 관리자 -->
+        <div class="dropdown" v-if="userStore.role === 'admin'">
+
+          <span class="dropbtn" @click.stop="toggleDropdown('admin')">
+            관리자 ▾
+          </span>
+
+          <div :class="['dropdown-content', { show: dropdownOpen.admin }]">
+
+            <router-link :to="{ path: '/admin/orderList' }" @click="closeAll">
+              주문정보
+            </router-link>
+            <router-link :to="{ path: '/admin/userList' }" @click="closeAll">
+              회원관리
+            </router-link>
+
+          </div>
+
+        </div>
+        <!-- ✅ 카카오 친구추가 버튼 -->
+        <div class="kakao-btn" @click="addKakaoChannel">
+          카카오 친구추가
         </div>
       </nav>
 
-      <!-- 로그인/로그아웃 영역 (오른쪽 끝) -->
+      <!-- 로그인 -->
       <div class="auth">
+
         <template v-if="userStore.isLogin">
-          <span class="welcome">{{ userStore.userName }}님 환영합니다</span>
-          <button class="login-btn logout-btn" @click="logout">로그아웃</button>
+
+          <span v-if="!isMobile" class="welcome">
+            {{ userStore.userName }}님 환영합니다
+          </span>
+
+          <button class="login-btn logout-btn" @click="logout">
+            로그아웃
+          </button>
+
         </template>
+
         <template v-else>
-          <button class="login-btn" @click="goLogin">로그인</button>
+          <button class="btn btn-success" @click="registerUser">
+            회원가입
+          </button>
+          <button class="login-btn" @click="goLogin">
+            로그인
+          </button>
+
         </template>
+
       </div>
+
     </header>
 
-    <!-- Main content -->
+    <!-- Main -->
     <main class="content">
       <router-view />
     </main>
 
     <!-- Footer -->
     <footer class="footer">
-      <p>© 2026 해담. All Rights Reserved.</p>
+      © 2026 해담. All Rights Reserved.
     </footer>
+
   </div>
 </template>
 
@@ -68,9 +162,13 @@ import { ref, reactive, onMounted, onBeforeUnmount } from "vue"
 import { useRouter } from "vue-router"
 import { useUserStore } from "@/stores/userStore"
 
+const server = process.env.VUE_APP_SERVER
+
 export default {
   name: "App",
+
   setup() {
+
     const router = useRouter()
     const userStore = useUserStore()
 
@@ -78,35 +176,42 @@ export default {
 
     const dropdownOpen = reactive({
       brand: false,
-      product: false
+      product: false,
+      mypage: false,
+      admin: false
     })
 
-    /* ⭐ 전체 메뉴 닫기 (핵심 함수) */
-    const closeAll = () => {
-      menuOpen.value = false
-      Object.keys(dropdownOpen).forEach(k => dropdownOpen[k] = false)
+    const isMobile = ref(false)
+    const categoryList = ref([])
+
+    const handleResize = () => {
+      isMobile.value = window.innerWidth <= 768
     }
 
-    /* 햄버거 토글 */
     const toggleMenu = () => {
       menuOpen.value = !menuOpen.value
     }
 
-    /* 드롭다운 토글 */
     const toggleDropdown = (menu) => {
-      dropdownOpen[menu] = !dropdownOpen[menu]
-      Object.keys(dropdownOpen).forEach(key => {
-        if (key !== menu) dropdownOpen[key] = false
+
+      Object.keys(dropdownOpen).forEach(k => {
+        dropdownOpen[k] = k === menu ? !dropdownOpen[k] : false
       })
+
     }
 
-    /* ⭐ 메뉴 클릭 시 전체 닫기 */
-    const handleMenuClick = () => {
-      closeAll()
+    const closeAll = () => {
+
+      menuOpen.value = false
+
+      Object.keys(dropdownOpen).forEach(k => {
+        dropdownOpen[k] = false
+      })
+
     }
 
-    /* ⭐ 메뉴 영역 밖 클릭 / 터치 */
     const handleOutsideClick = (e) => {
+
       const menu = document.querySelector(".menu")
       const hamburger = document.querySelector(".hamburger")
 
@@ -115,81 +220,154 @@ export default {
       if (!menu.contains(e.target) && !hamburger.contains(e.target)) {
         closeAll()
       }
+
     }
 
-    /* ⭐ 메뉴 영역 마우스 이탈 */
-    const handleMouseLeave = () => {
-      closeAll()
+    const getCategorySet = async () => {
+
+      try {
+
+        const res = await axios.get(`${server}/api/shop/categoryList.do`)
+        categoryList.value = res.data || []
+
+      } catch (err) {
+
+        console.error("카테고리 조회 실패", err)
+
+      }
+
     }
 
     const checkSession = async () => {
-      try {
-        const res = await axios.get(`/api/shop/session.do`, { withCredentials: true })
-        if (res.data.loginUser) userStore.setUser(res.data.loginUser)
-        else userStore.clearUser()
-      } catch {
-        userStore.clearUser()
+
+      const savedUser = localStorage.getItem("loginUser")
+
+      if (savedUser) {
+        userStore.setUser(JSON.parse(savedUser))
+        return
       }
+
+      try {
+
+        const res = await axios.get(
+          `${server}/api/shop/session.do`,
+          { withCredentials: true }
+        )
+
+        if (res.data?.loginUser) {
+
+          userStore.setUser(res.data.loginUser)
+
+          localStorage.setItem(
+            "loginUser",
+            JSON.stringify(res.data.loginUser)
+          )
+
+        } else {
+
+          userStore.clearUser()
+          localStorage.removeItem("loginUser")
+
+        }
+
+      } catch (err) {
+
+        userStore.clearUser()
+        localStorage.removeItem("loginUser")
+
+      }
+
     }
 
     const logout = async () => {
-      await axios.post(`/api/shop/logout.do`, {}, { withCredentials: true })
-      userStore.clearUser()
-      router.push("/")
-    }
-    
 
-    const goLogin = () => router.push("/login")
+      try {
+
+        await axios.post(
+          `${server}/api/shop/logout.do`,
+          {},
+          { withCredentials: true }
+        )
+
+      } catch (err) {
+
+        console.error("logout error")
+
+      }
+
+      userStore.clearUser()
+      localStorage.removeItem("loginUser")
+
+      router.push("/")
+
+    }
+
+    const goLogin = () => {
+      router.push("/login")
+    }
+
+    const registerUser = () => {
+      router.push("/joinUs")
+    }
+
+    const addKakaoChannel = () => {
+      window.open("https://pf.kakao.com/_DxnxdzX", "_blank")
+    }
 
     onMounted(() => {
+
+      handleResize()
+
       checkSession()
+      getCategorySet()
+
+      window.addEventListener("resize", handleResize)
 
       document.addEventListener("click", handleOutsideClick)
       document.addEventListener("touchstart", handleOutsideClick)
 
-      const menu = document.querySelector(".menu")
-      if (menu) {
-        menu.addEventListener("mouseleave", handleMouseLeave)
-
-        /* ⭐ 메뉴 안의 모든 링크 클릭 시 닫기 */
-        menu.querySelectorAll("a").forEach(el => {
-          el.addEventListener("click", handleMenuClick)
-        })
-      }
     })
 
     onBeforeUnmount(() => {
+
+      window.removeEventListener("resize", handleResize)
+
       document.removeEventListener("click", handleOutsideClick)
       document.removeEventListener("touchstart", handleOutsideClick)
 
-      const menu = document.querySelector(".menu")
-      if (menu) {
-        menu.removeEventListener("mouseleave", handleMouseLeave)
-      }
     })
 
-    
     return {
+
       userStore,
       menuOpen,
-      toggleMenu,
       dropdownOpen,
+
+      toggleMenu,
       toggleDropdown,
+      closeAll,
+
       logout,
-      goLogin
+      goLogin,
+      registerUser,
+
+      categoryList,
+      isMobile,
+      addKakaoChannel
     }
+
   }
+
 }
 </script>
 
-<style> 
-/* 전체 스타일 */
+<style>
 #app {
   font-family: 'Noto Serif KR', serif;
-  background-color: #f8f5ef;
-  margin: 0;
-  padding: 0;
+  background: #f8f5ef;
 }
+
+/* header */
 
 .header {
   display: flex;
@@ -197,52 +375,46 @@ export default {
   height: 90px;
   padding: 0 20px;
   background: #000;
-  border-bottom: 1px solid #222;
   position: relative;
 }
 
-/* 햄버거 (왼쪽 끝, 모바일만) */
+.logo img {
+  height: 80px;
+}
+
 .hamburger {
-  display: none; /* 기본은 숨김 */
+  display: none;
   flex-direction: column;
   justify-content: space-between;
   width: 25px;
   height: 18px;
   cursor: pointer;
-  margin-right: 10vw; /* 로고와 10% 화면 폭 공백 */
+  margin-right: 10vw;
 }
 
 .hamburger span {
-  display: block;
   height: 3px;
-  background-color: white;
-  border-radius: 2px;
+  background: white;
 }
 
-/* 로고 */
-.logo img {
-  height: 80px;
-}
+/* menu */
 
-/* 메뉴 */
 .menu {
   display: flex;
   align-items: center;
-  gap: 20px;
-  margin-left: 50px; /* 넓은 화면에서 로고와 메뉴 사이 50px */
+  gap: 25px;
+  margin-left: 50px;
 }
 
 .menu a,
 .dropbtn {
-  margin: 0;
-  color: #fff;
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
   text-decoration: none;
-  font-size: 14px;
-  letter-spacing: 2px;
   cursor: pointer;
 }
 
-/* 드롭다운 */
 .dropdown {
   position: relative;
 }
@@ -250,30 +422,28 @@ export default {
 .dropdown-content {
   display: none;
   position: absolute;
-  top: 100%;
+  top: 30px;
   left: 0;
-  background-color: #111;
-  min-width: 150px;
-  box-shadow: 0 8px 16px rgba(0,0,0,0.4);
-  z-index: 999;
-  flex-direction: column;
+  background: #111;
+  min-width: 160px;
+  border-radius: 4px;
 }
 
 .dropdown-content.show {
   display: flex;
+  flex-direction: column;
 }
 
 .dropdown-content a {
-  padding-left: 20px; 
-  color: #fff;
-  text-decoration: none;
+  padding: 2px 15px;
 }
 
 .dropdown-content a:hover {
-  background-color: #222;
+  background: #222;
 }
 
-/* 로그인/로그아웃 */
+/* auth */
+
 .auth {
   margin-left: auto;
   display: flex;
@@ -283,75 +453,114 @@ export default {
 }
 
 .login-btn {
-  background-color: #0d6efd;
+  background: #0d6efd;
   color: white;
   border: none;
   padding: 8px 16px;
   border-radius: 20px;
   cursor: pointer;
-  font-weight: 600;
-  transition: 0.3s;
-}
-
-.login-btn:hover {
-  background-color: #0b5ed7;
 }
 
 .logout-btn {
   padding: 4px 12px;
   font-size: 12px;
-  border-radius: 15px;
 }
 
-/* 콘텐츠/푸터 */
+/* main */
+
 .content {
-  padding: 80px 20px;
-  min-height: 500px;
+  padding: 20px 20px;
 }
+
+/* footer */
 
 .footer {
-  height: 50px; /* 높이 50px */
+  height: 60px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #ffffff;
-  border-top: 1px solid #e5ded6;
-  font-size: 13px;
-  color: #777;
+  background: white;
 }
 
-/* 모바일 반응형 */
-@media (max-width: 768px) {
+.kakao-btn {
+  color: #000;
+  background: #FEE500;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* mobile */
+
+@media(max-width:768px) {
+
   .hamburger {
-    display: flex; /* 모바일에서만 보임 */
+    display: flex;
+  }
+
+  .logo img {
+    height: 50px;
   }
 
   .menu {
     display: none;
     flex-direction: column;
-    position: absolute;
+    position: fixed;
+    /* absolute → fixed */
     top: 90px;
-    left: 0;
-    background-color: #000;
+    left: 20px;
+    background: #000;
     width: 200px;
-    z-index: 999;
-    gap: 0;
-    margin-left: 0; /* 모바일에서는 공백 제거 */
-    align-items: flex-start; 
+    padding: 20px;
+    z-index: 9999;
+    align-items: flex-start;
+    margin-left: 0px;
+  }
+
+  .dropdown {
+    width: 100%;
+  }
+
+  .menu a,
+  .dropbtn {
+    width: 100%;
+    text-align: left;
   }
 
   .menu.open {
     display: flex;
   }
 
-  .menu a,
-  .dropbtn {
-  margin: 5px 0 5px 15px;
+  .dropdown-content {
+    position: static;
+    background: #111;
   }
 
-  .dropdown-content {
-    position: relative;
-    box-shadow: none;
+  .login-btn {
+    padding: 4px 10px;
+    font-size: 12px;
+    border-radius: 12px;
   }
+
+  .kakao-btn {
+    display: block;
+    width: 100%;
+    text-align: center;
+    margin-top: 10px;
+
+    color: #000;
+    background: #FEE500;
+    padding: 10px;
+    border-radius: 20px;
+    font-weight: bold;
+  }
+
+  .auth .btn-success {
+    padding: 4px 10px;
+    font-size: 12px;
+    border-radius: 12px;
+  }
+
 }
 </style>

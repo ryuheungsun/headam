@@ -12,12 +12,7 @@
 
         <!-- 썸네일 이미지 -->
         <div class="d-flex gap-2 thumbs-wrapper justify-content-center">
-          <img
-            v-for="(thumb, idx) in product.thumbnails"
-            :key="idx"
-            :src="thumb"
-            class="img-thumbnail thumb-img"
-          />
+          <img v-for="(thumb, idx) in product.thumbnails" :key="idx" :src="thumb" class="img-thumbnail thumb-img" />
         </div>
       </div>
 
@@ -27,7 +22,7 @@
         <!-- 상품명 -->
         <h2 class="fw-bold mb-3">{{ product.productName }}</h2>
 
-        <!-- 🔥 배송/재고/포인트 정보 박스 -->
+        <!--  배송/재고/포인트 정보 박스 -->
         <div class="info-box mb-4">
 
           <div class="info-row">
@@ -40,9 +35,9 @@
             <span class="info-label">배송방법</span>
             <span class="info-value">
               <select class="form-select" v-model="product.receiveMethod">
-              <option value="1">택배</option>
-              <option value="2">방문수령</option>
-            </select>
+                <option value="1">택배</option>
+                <option value="2">방문수령</option>
+              </select>
             </span>
           </div>
           <div class="info-row" v-if="product.receiveMethod === '1'">
@@ -63,18 +58,17 @@
         <!-- 가격 / 할인 -->
         <div class="d-flex align-items-baseline mb-3">
           <span class="fs-3 fw-bold text-danger">{{ product.price }} 원</span>
-          <span v-if="product.salePrice"
-                class="text-muted text-decoration-line-through fs-5 ms-3">
+          <span v-if="product.salePrice" class="text-muted text-decoration-line-through fs-5 ms-3">
             {{ product.salePrice }} 원
           </span>
         </div>
 
         <!-- 옵션 선택 -->
         <div class="mb-3">
-          <select class="form-select">
-            <option disabled selected>옵션 선택</option>
-            <option v-for="(opt, idx) in product.options" :key="idx">
-              {{ opt }}
+          <select class="form-select" v-model="product.option">
+            <option value="0" selected>옵션 선택</option>
+            <option v-for="(opt, idx) in options" :key="idx" :value="opt.itemCode">
+              {{ opt.itemName }} --- {{ opt.price }}원
             </option>
           </select>
         </div>
@@ -82,17 +76,16 @@
         <!-- 수량 -->
         <div class="mb-4 d-flex align-items-center gap-2">
           <button class="btn btn-outline-secondary" @click="decQty">-</button>
-          <input type="text" v-model="qty"
-                 class="form-control text-center w-25" readonly />
+          <input type="text" v-model="this.product.quantity" class="form-control text-center w-25" readonly />
           <button class="btn btn-outline-secondary" @click="incQty">+</button>
         </div>
 
         <!-- 버튼 -->
         <div class="d-flex gap-2 mb-4">
-          <button class="btn btn-danger flex-fill py-2">
+          <button class="btn btn-danger flex-fill py-2" @click="buyNow">
             구매하기
           </button>
-          <button class="btn btn-outline-secondary flex-fill py-2">
+          <button class="btn btn-outline-secondary flex-fill py-2" @click="addCart('Y')">
             장바구니 담기
           </button>
         </div>
@@ -102,22 +95,16 @@
 
           <!-- 수정 / 삭제 버튼 -->
           <div class="d-flex justify-content-end gap-2 mt-2">
-            <button class="btn btn-secondary btn-sm"
-                    style="width:20%;"
-                    @click="$router.push('/productList')">
+            <button class="btn btn-secondary btn-sm" style="width:20%;" @click="$router.push('/productList')">
               목록
             </button>
-            <template v-if="userStore.role=='admin'">
-            <button class="btn btn-primary btn-sm"
-                    style="width:20%;"
-                    @click="goEdit">
-              수정
-            </button>
-            <button class="btn btn-danger btn-sm"
-                    style="width:20%;"
-                    @click="deleteProduct">
-              삭제
-            </button>
+            <template v-if="userStore.role == 'admin'">
+              <button class="btn btn-primary btn-sm" style="width:20%;" @click="goEdit">
+                수정
+              </button>
+              <button class="btn btn-danger btn-sm" style="width:20%;" @click="deleteProduct">
+                삭제
+              </button>
             </template>
           </div>
 
@@ -131,25 +118,19 @@
       <ul class="nav nav-tabs">
 
         <li class="nav-item">
-          <button class="nav-link"
-                  :class="{ active: activeTab === 'desc' }"
-                  @click="activeTab = 'desc'">
+          <button class="nav-link" :class="{ active: activeTab === 'desc' }" @click="activeTab = 'desc'">
             상품설명
           </button>
         </li>
 
         <li class="nav-item">
-          <button class="nav-link"
-                  :class="{ active: activeTab === 'detail' }"
-                  @click="activeTab = 'detail'">
+          <button class="nav-link" :class="{ active: activeTab === 'detail' }" @click="activeTab = 'detail'">
             상세정보
           </button>
         </li>
 
         <li class="nav-item">
-          <button class="nav-link"
-                  :class="{ active: activeTab === 'review' }"
-                  @click="activeTab = 'review'">
+          <button class="nav-link" :class="{ active: activeTab === 'review' }" @click="activeTab = 'review'">
             리뷰
           </button>
         </li>
@@ -159,18 +140,16 @@
       <div class="border p-4">
 
         <div v-if="activeTab === 'desc'">
-          <p>{{ product.shortDescription }}</p>
+          <div class="editor-content" v-html="product.description"></div>
         </div>
 
         <div v-if="activeTab === 'detail'">
-          <div v-html="product.fullDescription"></div>
+          <div class="editor-content" v-html="product.detailInfo"></div>
         </div>
 
         <div v-if="activeTab === 'review'">
           <div v-if="product.reviews && product.reviews.length">
-            <div v-for="(review, idx) in product.reviews"
-                 :key="idx"
-                 class="mb-3 border-bottom pb-2">
+            <div v-for="(review, idx) in product.reviews" :key="idx" class="mb-3 border-bottom pb-2">
               <strong>{{ review.user }}</strong>
               <p class="mb-1 text-warning">
                 ⭐ {{ review.rating }} / 5
@@ -187,37 +166,79 @@
 
     </div>
 
+    <!-- 로그인 모달 -->
+    <div class="modal fade" id="loginModal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content login-modal">
+
+          <div class="modal-header border-0">
+            <h5 class="modal-title fw-bold">로그인 필요</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+
+          <div class="modal-body text-center">
+            <p>
+              로그인이 필요한 서비스입니다.<br>
+              로그인 페이지로 이동하시겠습니까?
+            </p>
+          </div>
+
+          <div class="modal-footer border-0 d-flex gap-2">
+
+            <button class="btn btn-outline-secondary flex-fill" data-bs-dismiss="modal">
+              취소
+            </button>
+
+            <button class="btn btn-danger flex-fill" @click="goLogin">
+              로그인
+            </button>
+
+          </div>
+
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script>
 import axios from "axios"
 import { useUserStore } from "@/stores/userStore"
-const server = process.env.VUE_APP_SERVER; 
+import * as bootstrap from "bootstrap"
+const server = process.env.VUE_APP_SERVER;
 
 export default {
   name: "ProductDetail",
   props: ["id"],
-  
+
   data() {
     return {
       qty: 1,
       product: {
-        productCode   : '',
-        productName   : '',
-        brand         : '',
-        category      : '',
-        price         : '',
-        description   : '',
-        shippingType  : '',
-        shippingCost  : '',
-        purchaseLimit     : '',
-        shippingInfo  : '',
-        receiveMethod : '',
-        stock         : '',
-        point         : '',
-        image         : '',
-        thumbnails    : []
+        productCode: '',
+        productName: '',
+        brand: '',
+        category: '',
+        price: '',
+        quantity: 0,
+        description: '',
+        detatilInfo: '',
+        shippingType: '',
+        shippingCost: '',
+        purchaseLimit: '',
+        shippingInfo: '',
+        receiveMethod: '',
+        option: '',
+        stock: '',
+        point: '',
+        image: '',
+        thumbnails: []
+      },
+      options: {
+        itemCode: '',
+        itemName: '',
+        price: ''
       },
       activeTab: 'desc'
     }
@@ -229,10 +250,10 @@ export default {
   },
   async mounted() {
     await this.fetchProduct()
-    // await this.checkSession()
+    await this.fetchOptins()
   },
   methods: {
-       
+
 
     goEdit() {
       const id = this.$route.params.id
@@ -245,7 +266,7 @@ export default {
     async fetchProduct() {
       try {
         const res = await axios.get(
-          `/api/shop/product/${this.id}.do`
+          `${server}/api/shop/product/${this.id}.do`
         )
         this.product = res.data
       } catch (err) {
@@ -253,15 +274,26 @@ export default {
       }
     },
 
+    async fetchOptins() {
+      try {
+        const res = await axios.get(
+          `${server}/api/shop/options.do`, { productCode: "" + this.product.productCode }
+        )
+        this.options = res.data
+      } catch (err) {
+        console.error(err)
+      }
+    },
+
     incQty() {
-      this.qty++
+      this.product.quantity++
     },
 
     decQty() {
-      if (this.qty > 1) this.qty--
+      if (this.product.quantity > 1) this.product.quantity--
     },
 
-     async deleteProduct() {
+    async deleteProduct() {
       const id = this.$route.params.id
 
       if (!confirm("정말 삭제하시겠습니까?")) return
@@ -288,6 +320,72 @@ export default {
       this.showModal = false
       this.newCategoryId = ""
       this.newCategoryName = ""
+    },
+
+    async buyNow() {
+
+      // 장바구니 먼저 완료 기다림
+      const result = await this.addCart('N')
+
+      if (result !== 'success') {
+        alert("장바구니 담기 실패")
+        return
+      }
+
+      // 완료 후 이동
+      this.$router.push({
+        path: "/order",
+        query: {
+          items: this.product.productCode,
+          option: this.product.option
+        }
+      })
+    },
+
+    addCart(flag) {
+      if (!this.userStore.userId) {
+        const modal = new bootstrap.Modal(
+          document.getElementById("loginModal")
+        )
+        modal.show()
+        return
+      }
+
+      // 장바구니 API 호출 예시
+      return axios.post(`${server}/api/cart/addCart.do`, {
+        productCode: "" + this.product.productCode,
+        userId: this.userStore.userId,
+        quantity: this.product.quantity,
+        option: this.product.option
+      })
+        .then(res => {
+          console.log(res)
+
+          if (res.data === "success") {
+            if (flag == 'Y') {
+              alert("장바구니에 담았습니다.")
+            }
+            return "success"
+          } else {
+            alert("저장 실패")
+            return "fail"
+          }
+        })
+        .catch(err => {
+          console.error(err)
+          alert("서버 오류")
+          return "error"
+        })
+    },
+
+    goLogin() {
+      const modalEl = document.getElementById("loginModal")
+      const modal = bootstrap.Modal.getInstance(modalEl)
+
+      if (modal) {
+        modal.hide()
+      }
+      this.$router.push("/login")
     }
 
   }
@@ -313,7 +411,7 @@ export default {
   transition: 0.2s;
 }
 
-/* 🔥 정보 박스 디자인 */
+/*  정보 박스 디자인 */
 .info-box {
   border: 1px solid #eee;
   padding: 15px;
@@ -334,11 +432,38 @@ export default {
 
 .info-value {
   font-weight: 500;
-  width:70%
+  width: 70%
 }
 
 .highlight {
   color: #d32f2f;
   font-weight: bold;
+}
+
+.login-modal {
+  max-width: 60%;
+}
+
+.editor-content {
+  line-height: 1.7;
+  word-break: break-word;
+}
+
+.editor-content img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 10px auto;
+}
+
+.editor-content p {
+  margin-bottom: 12px;
+}
+
+/* 태블릿 / 모바일 */
+@media (max-width: 768px) {
+  .login-modal {
+    max-width: 100%;
+  }
 }
 </style>

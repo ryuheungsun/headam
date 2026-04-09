@@ -1,17 +1,14 @@
 <template>
   <div class="wrapper">
     <div class="scene" :class="{ open: isOpen }">
-      
+
       <!-- 로고 -->
-      <div
-        class="inner"
-        :style="{
-          backgroundImage: `url(${logoImg})`,
-          backgroundSize: 'contain',
-          backgroundRepeat: 'no-repeat',
-          backgroundPosition: 'center'
-        }"
-      ></div>
+      <div class="inner" :style="{
+        backgroundImage: `url(${logoImg})`,
+        backgroundSize: 'contain',
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'center'
+      }"></div>
 
       <!-- 문 -->
       <div class="door left" :style="{ backgroundImage: `url(${doorTexture})` }"></div>

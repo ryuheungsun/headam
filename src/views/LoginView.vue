@@ -7,33 +7,36 @@
 
       <form @submit.prevent="login">
         <div class="input-group">
-          <input
-            type="text"
-            v-model="userId"
-            placeholder="아이디"
-            required
-          />
+          <input type="text" v-model="userId" placeholder="아이디" required />
         </div>
 
         <div class="input-group">
-          <input
-            type="password"
-            v-model="password"
-            placeholder="비밀번호"
-            required
-          />
+          <input type="password" v-model="password" placeholder="비밀번호" required />
         </div>
 
-        <button type="submit" class="login-btn"> 
+        <button type="submit" class="login-btn">
           로그인
         </button>
-        <!-- 🔥 구분선 -->
-        <div class="divider"></div>
-        <button type="button" class="kakao-btn" @click="kakaoLogin">
-          <img :src="kakao_login" class="kakao-btn"/>
-        </button>
 
-        <div id="naverIdLogin" class="naver-login"></div>
+        <div class="divider"></div>
+
+        <!--  SNS 로그인 -->
+        <div class="sns-login">
+
+          <!-- 카카오 -->
+          <button type="button" class="sns-btn kakao" @click="kakaoLogin">
+            <span class="sns-icon">K</span>
+            카카오 로그인
+          </button>
+
+          <!-- 네이버 -->
+          <button type="button" class="sns-btn naver" @click="naverLogin">
+            <span class="sns-icon">N</span>
+            네이버 로그인
+          </button>
+
+        </div>
+
       </form>
     </div>
   </div>
@@ -42,8 +45,8 @@
 <script>
 import axios from "axios"
 import logo from "@/assets/logo.png"
-import kakao_login from "@/assets/kakao_login.png"
 import { useUserStore } from "@/stores/userStore"
+import Swal from "sweetalert2";
 
 const server = process.env.VUE_APP_SERVER
 
@@ -54,25 +57,32 @@ export default {
     return {
       userId: "",
       password: "",
-      logo,
-      kakao_login
+      logo
     }
   },
 
   mounted() {
+    //  카카오 초기화
     if (window.Kakao && !window.Kakao.isInitialized()) {
       window.Kakao.init("a12b139def86863fcd7d3ead4b3a5a44")
     }
-     this.initNaverLogin();
+
+    //  네이버 결과 받기
+    window.addEventListener("message", this.handleNaverLogin);
   },
 
-  methods: {  
-    
+  beforeUnmount() {
+    window.removeEventListener("message", this.handleNaverLogin);
+  },
+
+  methods: {
+
+    // 일반 로그인
     async login() {
-      const userStore = useUserStore()  // 🔥 반드시 여기서 호출
+      const userStore = useUserStore()
 
       try {
-        const res = await axios.post(`/api/shop/login.do`,
+        const res = await axios.post(`${server}/api/login.do`,
           {
             userId: this.userId,
             password: this.password
@@ -81,28 +91,39 @@ export default {
             withCredentials: true
           }
         )
-      //console.log("응답:", res.data)
-        if (res.data && res.data.loginUser) {
-          // Pinia 상태 저장
-          userStore.setUser(res.data.loginUser)
 
-          // 로그인 후 이동
+        if (res.data && res.data.loginUser) {
+          userStore.setUser(res.data.loginUser)
           this.$router.push("/productList")
         } else {
-          alert("아이디 또는 비밀번호를 확인하세요.")
+          Swal.fire({
+            //title: "상품선택",
+            text: "아이디 또는 비밀번호를 확인하세요.",
+            icon: "info",
+            confirmButtonText: "확인",
+            width: 300,       // 가로 크기 조절
+            heightAuto: false // 높이 자동 확대 방지
+          });
         }
 
       } catch (e) {
-        alert("아이디 또는 비밀번호를 확인하세요.")
+        Swal.fire({
+          //title: "상품선택",
+          text: "아이디 또는 비밀번호를 확인하세요",
+          icon: "info",
+          confirmButtonText: "확인",
+          width: 300,       // 가로 크기 조절
+          heightAuto: false // 높이 자동 확대 방지
+        });
       }
     },
 
-     // 카카오 로그인
+    //  카카오 로그인
     kakaoLogin() {
       const userStore = useUserStore()
 
       window.Kakao.Auth.login({
-        scope: "account_email,phone_number",
+        scope: "account_email",
         success: () => {
 
           window.Kakao.API.request({
@@ -111,13 +132,12 @@ export default {
 
               const kakaoId = res.id
               const email = res.kakao_account?.email
-              //const phone = res.kakao_account?.phone_number
 
               const response = await axios.post(
-                `/api/shop/kakaoLogin.do`,
+                `${server}/api/shop/kakaoLogin.do`,
                 {
-                  kakaoId: kakaoId,
-                  email: email
+                  kakaoId,
+                  email
                 },
                 {
                   withCredentials: true
@@ -133,29 +153,38 @@ export default {
         }
       })
     },
-    //naver Login
-    initNaverLogin() {
-      // 네이버 SDK가 아직 안 불러와진 경우 대기
-      if (!window.naver || !window.naver.LoginWithNaverId) {
-        console.warn("네이버 SDK 로딩 대기중...");
-        setTimeout(this.initNaverLogin, 300);
-        return;
-      }
 
-      const naverLogin = new window.naver.LoginWithNaverId({
-        clientId: "QkwdMc1jkcmIhFw74Pl7", // ← 네이버 클라이언트 ID
-        callbackUrl: "http://localhost:8080/naverCallBack", // ← 네이버에 등록한 콜백 URL
-        isPopup: false,
-        loginButton: {
-          color: "green",
-          type: 3,
-          height: 50
+    //  네이버 로그인 (팝업)
+    naverLogin() {
+      const clientId = "uw_UOITT4pvej9YL5L5M";
+      const redirectUri = "http://localhost:8080/naverCallBack";
+      const state = "LOGIN_" + Math.random().toString(36).substring(2);
+
+      const url = `https://nid.naver.com/oauth2.0/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;
+
+      window.open(url, "naverLogin", "width=500,height=600");
+    },
+
+    //  네이버 결과 처리
+    handleNaverLogin(event) {
+
+      if (event.data.type === "NAVER" && event.data.mode === "LOGIN") {
+
+        console.log("네이버 로그인 결과:", event.data);
+
+        const userStore = useUserStore();
+
+        if (event.data.loginUser) {
+          userStore.setUser(event.data.loginUser);
+          this.$router.push("/productList");
+        } else {
+          // 👉 회원가입으로 이동
+          sessionStorage.setItem("naverId", event.data.naverId);
+          this.$router.push("/joinUs");
         }
-      });
-
-      // 로그인 초기화
-      naverLogin.init();
+      }
     }
+
   }
 }
 </script>
@@ -173,13 +202,12 @@ export default {
   padding: 50px 40px;
   background: white;
   border-radius: 20px;
-  box-shadow: 0 15px 40px rgba(0,0,0,0.1);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.1);
   text-align: center;
 }
 
 .logo {
   width: 260px;
-  height: auto;
   display: block;
   margin: 0 auto;
 }
@@ -187,7 +215,6 @@ export default {
 .title {
   color: #b8893c;
   margin-bottom: 30px;
-  font-weight: 600;
 }
 
 .input-group {
@@ -196,17 +223,9 @@ export default {
 
 input {
   width: 100%;
-  padding: 12px 15px;
-  border: 1px solid #ddd;
+  padding: 12px;
   border-radius: 30px;
-  outline: none;
-  font-size: 14px;
-  transition: 0.3s;
-}
-
-input:focus {
-  border-color: #b8893c;
-  box-shadow: 0 0 5px rgba(184,137,60,0.3);
+  border: 1px solid #ddd;
 }
 
 .login-btn {
@@ -215,46 +234,47 @@ input:focus {
   background: #b8893c;
   border: none;
   color: white;
-  font-size: 16px;
   border-radius: 30px;
   cursor: pointer;
-  transition: 0.3s;
 }
 
-.login-btn:hover {
-  background: #a4772f;
-}
-.kakao-btn {
-  width: 85%;
-  background: transparent;   /* 배경 제거 */
-  border: none;              /* 🔥 라인 제거 */
-  padding: 0;                /* 여백 제거 */
-  cursor: pointer;
-}
 .divider {
+  margin: 25px 0;
+  height: 1px;
+  background: #eee;
+}
+
+/* SNS 버튼 */
+.sns-login {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sns-btn {
+  height: 48px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 15px;
+
   display: flex;
   align-items: center;
-  margin: 25px 0;   /* 위아래 간격 */
-  color: #aaa;
-  font-size: 13px;
+  justify-content: center;
+  gap: 8px;
 }
 
-/* 좌우 선 */
-.divider::before,
-.divider::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: #e0e0e0;
+.sns-btn.kakao {
+  background: #FEE500;
+  color: #3C1E1E;
 }
 
-/* 가운데 텍스트 */
-.divider span {
-  margin: 0 15px;
-  white-space: nowrap;
+.sns-btn.naver {
+  background: #03C75A;
+  color: white;
 }
 
-.naver-login {
-  margin-top: 20px;
+.sns-icon {
+  font-weight: bold;
 }
 </style>
